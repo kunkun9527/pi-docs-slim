@@ -6,7 +6,7 @@ By default, Pi includes a documentation block telling the agent where to read Pi
 
 ## Features
 
-- Removes the default `Pi documentation ...` system-prompt block on normal turns.
+- Removes Pi's complete built-in `<docs>...</docs>` system-prompt section on normal turns (including its wrapper).
 - Adds a `/pi` command for one-off Pi documentation mode.
 - `/pi` preserves Pi's original built-in documentation guidance for that turn instead of approximating it in a skill.
 - Keeps the rest of Pi's default prompt intact: tools, guidelines, context files, skills, date, and current working directory.
@@ -52,6 +52,8 @@ extensions/remove-pi-docs.ts
 - This package no longer uses a skill. `/pi` is an extension command.
 - The command does not recreate or duplicate Pi docs guidance. It simply skips removal for the next turn, preserving Pi's original prompt block exactly as Pi generated it.
 - This package does not modify Pi internals; it only rewrites the per-turn system prompt through Pi's extension API.
+- Pi 0.87 wraps this guidance in `<docs>...</docs>`; removing only the text leaves an empty wrapper, so the extension removes the complete rendered section.
+- The current extension API applies this transform by returning the rendered system prompt; Pi treats that as a full prompt override, which may affect provider prompt caching.
 
 ## License
 
