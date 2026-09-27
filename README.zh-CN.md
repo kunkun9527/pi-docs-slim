@@ -1,0 +1,66 @@
+# @ssk_dev/pi-docs-slim
+
+> [看看我的完整 Pi 配置](https://github.com/kunkun9527/my-lean-pi-setup)
+
+[English](README.md)
+
+一个 [Pi](https://pi.dev) 扩展，把 Pi 默认附带的文档说明从系统提示词里去掉。真要问 Pi 本身的问题时，用 `/pi` 提问，这一次会把文档说明带回来。
+
+本项目 fork 自 Rob Zolkos 的 [robzolkos/pi-slim](https://github.com/robzolkos/pi-slim)。思路和 `/pi` 命令都来自原版，fork 主要是为了让它能在新版 Pi 上正常工作。
+
+## 安装
+
+```bash
+pi install npm:@ssk_dev/pi-docs-slim
+```
+
+如果装过原版 `pi-slim`，先卸载。两个扩展都会注册 `/pi` 命令。
+
+需要 Pi 0.87.1。
+
+## 使用
+
+- 普通请求：模型看不到 Pi 的文档说明。
+- `/pi <关于 Pi 的问题>`：这一次保留文档说明，工具调用的轮次也保留；下一条普通请求恢复清理。
+- 你自己写的 `<docs>`、项目指令和代码示例不动；用户消息、助手回答和工具输出一律不改。
+
+安装或更新后执行 `/reload`，发一条普通消息，再看看 `/context`。
+
+## 为什么要 fork
+
+原版 0.2.1 靠替换系统提示词里的一段字符串来去掉文档说明。Pi 0.87.1 开始，系统提示词改成按结构化的 section 拼出来，并保存成 system 消息，这种替换就不起作用了，文档说明照样会发给模型（见 [pi-slim#3](https://github.com/robzolkos/pi-slim/issues/3)）。
+
+这个 fork 改了这些：
+
+- **在新的结构化提示词里去掉文档说明。** 不让 Pi 把 docs section 重新填回来，system 消息在保存前、发送前都会清理。
+- **旧历史也清理。** 之前 `/pi` 留下的文档说明，在后面的普通请求里会被去掉。
+- **`/context` 显示的是实际内容。** [pi-context-view](https://www.npmjs.com/package/pi-context-view) 看到的是清理后的提示词，而不是原始版本。
+- **`/pi` 更可靠。** “保留文档”的许可只绑定到 `/pi` 发出的那一次请求；就算这次请求被拦截，也不会漏到你的下一条消息。
+- **提示词不会被冻结。** 其他扩展后来加的工具和规则照样生效。
+- **加了离线集成测试。** 用真实的 Pi 会话加离线模型 provider 跑，不调用模型服务。
+
+没有新增运行时依赖。
+
+## 测试
+
+```bash
+npm test
+```
+
+测试需要装好 Pi 0.87.1 和 pi-context-view 0.6.0。默认找全局的 Pi 和 `~/.pi/agent/npm/node_modules/pi-context-view`；装在别处的话，指向包的根目录：
+
+```bash
+PI_CODING_AGENT_DIR=/path/to/pi-coding-agent PI_CONTEXT_VIEW_DIR=/path/to/pi-context-view npm test
+```
+
+设置 `PI_SLIM_ENTRY` 可以拿这套测试去跑别的实现。
+
+## 限制
+
+- 不改写旧的会话文件。`/context` 的 Usage 视图在下一条普通请求后就是干净的。Initial 视图是第一次请求时的快照，要重新加载才会更新；如果第一次请求用的是 `/pi`，里面有文档说明是正常的。
+- 模型自己用工具去读 Pi 文档，读到的内容会保留。
+- 清理逻辑依赖 Pi 0.87.1 的事件顺序，升级 Pi 后要重跑测试。如果别的扩展在最后一步上下文处理之后又塞回文档说明，这里清不掉。
+
+## 许可证
+
+MIT。原作品版权归 pi-slim contributors（Rob Zolkos）所有，见 [LICENSE](LICENSE)。

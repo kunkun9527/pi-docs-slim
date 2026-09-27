@@ -1,20 +1,24 @@
 {
-  "name": "pi-slim",
-  "version": "0.2.1",
-  "description": "Slim Pi's default system prompt by making Pi documentation guidance opt-in via /pi.",
-  "keywords": ["pi-package", "pi", "prompt", "extension"],
-  "author": "Rob Zolkos <rob@zolkos.com>",
+  "name": "@ssk_dev/pi-docs-slim",
+  "version": "0.3.0",
+  "description": "Keep Pi's built-in documentation guidance out of the system prompt unless you ask for it with /pi. Fork of pi-slim, updated for Pi 0.87.1.",
+  "keywords": ["pi-package", "pi-extension", "pi", "prompt", "token-efficient"],
+  "author": "kunkun9527",
+  "contributors": ["Rob Zolkos <rob@zolkos.com> (original pi-slim)"],
   "license": "MIT",
   "type": "module",
-  "homepage": "https://github.com/robzolkos/pi-slim#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/kunkun9527/pi-docs-slim#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/robzolkos/pi-slim.git"
+    "url": "git+https://github.com/kunkun9527/pi-docs-slim.git"
   },
   "bugs": {
-    "url": "https://github.com/robzolkos/pi-slim/issues"
+    "url": "https://github.com/kunkun9527/pi-docs-slim/issues"
   },
-  "files": ["extensions", "README.md", "LICENSE"],
+  "files": ["extensions", "README.md", "README.zh-CN.md", "LICENSE"],
   "pi": {
     "extensions": ["./extensions/remove-pi-docs.ts"]
   },
