@@ -16,7 +16,7 @@ pi install npm:@ssk_dev/pi-docs-slim
 
 如果装过原版 `pi-slim`，先卸载。两个扩展都会注册 `/pi` 命令。
 
-需要 Pi 0.87.1。
+需要 Pi 0.87.1 或更新版本（已在 0.87.1 和 1.0.0 上测试）。
 
 ## 使用
 
@@ -47,7 +47,7 @@ pi install npm:@ssk_dev/pi-docs-slim
 npm test
 ```
 
-测试需要装好 Pi 0.87.1 和 pi-context-view 0.6.0。默认找全局的 Pi 和 `~/.pi/agent/npm/node_modules/pi-context-view`；装在别处的话，指向包的根目录：
+测试需要装好 Pi 0.87.1 以上版本和 pi-context-view 0.6.0。默认找全局的 Pi 和 `~/.pi/agent/npm/node_modules/pi-context-view`；装在别处的话，指向包的根目录：
 
 ```bash
 PI_CODING_AGENT_DIR=/path/to/pi-coding-agent PI_CONTEXT_VIEW_DIR=/path/to/pi-context-view npm test

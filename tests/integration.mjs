@@ -15,7 +15,8 @@ const root = process.env.PI_CODING_AGENT_DIR || join(execFileSync(
   { encoding: 'utf8', shell: process.platform === 'win32', env: npmEnv },
 ).trim(), '@earendil-works/pi-coding-agent');
 const req = createRequire(join(root, 'package.json'));
-assert.equal(req('./package.json').version, '0.87.1', 'This integration suite targets Pi 0.87.1');
+const [major, minor] = req('./package.json').version.split('.').map(Number);
+assert.ok(major > 0 || minor >= 87, 'This integration suite needs Pi 0.87.1 or newer');
 const { createJiti } = req('jiti');
 const jiti = createJiti(import.meta.url, { moduleCache: false, fsCache: false, alias: {
   '@earendil-works/pi-coding-agent': join(root, 'dist/index.js'),

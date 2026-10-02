@@ -16,7 +16,7 @@ pi install npm:@ssk_dev/pi-docs-slim
 
 If you have the original `pi-slim` installed, remove it first. Both register a `/pi` command.
 
-Requires Pi 0.87.1.
+Requires Pi 0.87.1 or newer (tested on 0.87.1 and 1.0.0).
 
 ## Usage
 
@@ -47,7 +47,7 @@ No new runtime dependencies.
 npm test
 ```
 
-The tests need Pi 0.87.1 and pi-context-view 0.6.0 installed. They look for the global Pi and `~/.pi/agent/npm/node_modules/pi-context-view` by default. For other locations, point to the package roots:
+The tests need Pi 0.87.1+ and pi-context-view 0.6.0 installed. They look for the global Pi and `~/.pi/agent/npm/node_modules/pi-context-view` by default. For other locations, point to the package roots:
 
 ```bash
 PI_CODING_AGENT_DIR=/path/to/pi-coding-agent PI_CONTEXT_VIEW_DIR=/path/to/pi-context-view npm test

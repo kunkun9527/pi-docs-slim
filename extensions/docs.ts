@@ -17,7 +17,8 @@ export function isBuiltinDocs(body: string): boolean {
 		&& lines[3].startsWith("- Examples: ") && lines[3].endsWith(" (extensions, custom tools, SDK)")
 		&& lines[4] === "- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory"
 		&& lines[5].startsWith("- When asked about: extensions (docs/extensions.md, examples/extensions/), ")
-		&& lines[5].endsWith("environment variables (docs/environment-variables.md)")
+		// Pi 1.0 appended MCP/codemode topics; tolerate future additions to this list.
+		&& lines[5].includes("environment variables (docs/environment-variables.md)")
 		&& lines[6] === "- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing"
 		&& lines[7] === "- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)";
 }
