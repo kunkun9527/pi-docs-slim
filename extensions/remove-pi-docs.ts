@@ -59,7 +59,8 @@ export default function piSlim(pi: ExtensionAPI) {
 
 		const docs = options.sections.docs;
 		const native = !docs || isBuiltinDocs(docs);
-		const prompt = event.messageType === "user" ? event.prompt : undefined;
+		// Pi 1.2 added `messageType`; earlier versions only fire this event for user prompts.
+		const prompt = event.messageType !== "custom" ? event.prompt : undefined;
 		// Read the rendered prompt before the marker replaces the section: it is the only place
 		// Pi spells the guidance out, so this extension never has to duplicate the text.
 		const guidance = preserveDocs && native && prompt !== undefined ? extractBuiltinDocs(event.systemPrompt) : undefined;
