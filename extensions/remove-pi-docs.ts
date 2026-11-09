@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { BeforeAgentStartEvent, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { cleanRequestMessages, extractBuiltinDocs, isBuiltinDocs, OMIT_DOCS, prependDocsToRunPrompt, renderDocsBlock, type RunPrompt, stripPiDocs } from "./docs.ts";
+import { cleanRequestMessages, extractBuiltinDocs, isBuiltinDocs, learnNativeDocs, OMIT_DOCS, prependDocsToRunPrompt, renderDocsBlock, type RunPrompt, stripPiDocs } from "./docs.ts";
 
 /**
  * Transcript marker for a /pi run whose request carried the guidance. Custom entries are rendered
@@ -56,6 +56,8 @@ export default function piSlim(pi: ExtensionAPI) {
 		if (token) token.consumed = true;
 		options = event.systemPromptOptions;
 		docsTail = undefined;
+		// event.systemPrompt re-renders from the options on every read, so it shows this host's own wording.
+		learnNativeDocs(options, () => event.systemPrompt);
 
 		const docs = options.sections.docs;
 		const native = !docs || isBuiltinDocs(docs);

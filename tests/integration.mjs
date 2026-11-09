@@ -85,7 +85,7 @@ async function contextView08() {
       };
     } };
 }
-const { buildSystemPromptSections } = await import(pathToFileURL(join(root, 'dist/core/system-prompt.js')));
+const { buildSystemPrompt, buildSystemPromptSections } = await import(pathToFileURL(join(root, 'dist/core/system-prompt.js')));
 const nativeDocs = buildSystemPromptSections({ cwd: here }).docs;
 const { prepareCompaction } = await import(pathToFileURL(join(root, 'dist/core/compaction/compaction.js')));
 const DOCS_HEADER = 'Pi documentation (read only';
@@ -356,11 +356,64 @@ test('ordinary requests reuse one system message instead of appending a patch pe
   f.viewClean();
 }));
 
-const { cleanRequestMessages, cleanSystemMessage, extractBuiltinDocs, OMIT_DOCS, prependDocsToRunPrompt, renderDocsBlock, stripPiDocs } = await jiti.import(resolve(here, '../extensions/docs.ts'));
+// moduleCache: false gives every import its own learned-guidance state.
+const docsModule = () => jiti.import(resolve(here, '../extensions/docs.ts'));
+const { cleanRequestMessages, cleanSystemMessage, extractBuiltinDocs, learnNativeDocs, OMIT_DOCS, prependDocsToRunPrompt, renderDocsBlock, stripPiDocs } = await docsModule();
 const nativeBody = nativeDocs.slice('<docs>\n'.length, -'\n</docs>'.length);
+// Pi 0.87-1.4 wording, recognized without learning; Pi 1.5 and other builds (Pi-Bolt) reword it.
+const legacyWording = nativeBody.startsWith('Pi documentation (read only when the user asks about pi itself,');
+// Unwrapped guidance only comes from pre-section prompts, so only the frozen legacy wording has it.
+const bareDocs = legacyWording ? nativeBody : nativeDocs;
+// The parser tests below use what this host renders, learned exactly as the extension learns it.
+const hostOptions = { cwd: here };
+learnNativeDocs(hostOptions, () => buildSystemPrompt(hostOptions));
+
+test('learning: the host rendering is learned exactly, and options are restored', async () => {
+  const fresh = await docsModule();
+  assert.equal(fresh.isBuiltinDocs(nativeBody), legacyWording, 'only the frozen legacy wording is known before learning');
+  const sections = { docs: 'PROJECT_DOCS', later: 'LATER' };
+  const options = { cwd: here, customPrompt: 'CUSTOM\n<docs>\nCUSTOM_DOCS\n</docs>', forceSystemPrompt: 'FORCED\n<docs>\nFORCED_DOCS\n</docs>', sections };
+  const before = structuredClone(options);
+  fresh.learnNativeDocs(options, () => buildSystemPrompt(options));
+  assert.equal(fresh.isBuiltinDocs(nativeBody), true);
+  assert.equal(fresh.isBuiltinDocs(nativeBody.replaceAll('\n', '\r\n')), true);
+  for (const owned of ['PROJECT_DOCS', 'CUSTOM_DOCS', 'FORCED_DOCS', `${nativeBody}\nPROJECT_EXTRA`]) assert.equal(fresh.isBuiltinDocs(owned), false);
+  assert.deepEqual(options, before); assert.equal(options.sections, sections);
+  const bare = { cwd: here };
+  fresh.learnNativeDocs(bare, () => buildSystemPrompt(bare));
+  assert.deepEqual(Object.keys(bare), ['cwd'], 'absent options stay absent');
+});
+
+test('learning: hosts without a live rendering, ambiguous probes, and failures learn nothing', async () => {
+  const fresh = await docsModule();
+  const render = docs => `A\n<docs>\n${docs}\n</docs>\nB`;
+  const live = opts => () => render(opts.sections.docs ?? 'FAKE_NATIVE');
+  const cases = [
+    opts => () => render('FAKE_NATIVE'), // static string, as on hosts without a prompt getter
+    opts => () => opts.sections.docs ? render(`${opts.sections.docs}\n</docs>\n<docs>\n${opts.sections.docs}`) : render('FAKE_NATIVE'),
+    opts => () => opts.sections.docs ? 'CHANGED_PREFIX' + render(opts.sections.docs) : render('FAKE_NATIVE'),
+    () => () => { throw new Error('render failed'); },
+  ];
+  for (const make of cases) {
+    const sections = { docs: 'PROJECT' };
+    const opts = { cwd: here, forceSystemPrompt: 'FORCED', sections };
+    fresh.learnNativeDocs(opts, make(opts));
+    assert.deepEqual(opts, { cwd: here, forceSystemPrompt: 'FORCED', sections: { docs: 'PROJECT' } }); assert.equal(opts.sections, sections);
+  }
+  assert.equal(fresh.isBuiltinDocs('FAKE_NATIVE'), false);
+  const opts = { cwd: here };
+  fresh.learnNativeDocs(opts, live(opts));
+  assert.equal(fresh.isBuiltinDocs('FAKE_NATIVE'), true, 'the same algorithm learns from a live rendering');
+});
+
+test('parser: unwrapped guidance is the frozen legacy wording only and never swallows what follows', () => {
+  // Issue #6 suggested accepting 1-9 unwrapped lines; that would also remove the project rule.
+  const shorter = nativeBody.split('\n').slice(0, -1).join('\n');
+  for (const text of [`${shorter}\n\nKEEP_PROJECT_RULE`, ...(legacyWording ? [] : [`${nativeBody}\n\nKEEP_PROJECT_RULE`])]) assert.equal(stripPiDocs(text), text);
+});
 
 test('parser: complete native blocks, CRLF, repeated blocks, and omission markers', () => {
-  for (const docs of [nativeDocs, nativeBody, nativeDocs.replaceAll('\n', '\r\n'), `<docs>\n${OMIT_DOCS}\n</docs>`]) {
+  for (const docs of [nativeDocs, bareDocs, nativeDocs.replaceAll('\n', '\r\n'), `<docs>\n${OMIT_DOCS}\n</docs>`]) {
     assert.equal(stripPiDocs(docs), '');
     assert.equal(stripPiDocs(`BEFORE\n\n${docs}\n\nAFTER`), 'BEFORE\n\nAFTER');
     assert.equal(stripPiDocs(`${docs}\n\n${docs}\n\nAFTER`), 'AFTER');
@@ -546,7 +599,7 @@ test('extractBuiltinDocs reads Pi\'s own section, never a custom or quoted copy'
   assert.equal(extractBuiltinDocs('```xml\n' + nativeDocs + '\n```'), undefined);
   assert.equal(extractBuiltinDocs(renderDocsBlock(nativeBody)), undefined);
   // Same rules as stripPiDocs: bare guidance counts, copies nested in a block or in any fence don't.
-  assert.equal(extractBuiltinDocs(`FORCED\n\n${nativeBody}\n\nTAIL`), nativeBody);
+  assert.equal(extractBuiltinDocs(`FORCED\n\n${bareDocs}\n\nTAIL`), nativeBody);
   assert.equal(extractBuiltinDocs('~~~\n' + nativeDocs + '\n~~~'), undefined);
   assert.equal(extractBuiltinDocs(`<example>\n${nativeDocs}\n</example>`), undefined);
 });
@@ -597,7 +650,7 @@ test('/pi keeps the guidance on its own message when a steering message starts w
 }));
 
 test('/pi still gets the guidance when an earlier extension forced a prompt with bare guidance', () => using({ before: [pi => {
-  pi.on('before_agent_start', () => ({ systemPrompt: `FORCED_KEEP\n\n${nativeBody}` }));
+  pi.on('before_agent_start', () => ({ systemPrompt: `FORCED_KEEP\n\n${bareDocs}` }));
 }] }, async f => {
   await f.command('/pi explain extensions');
   piDocs(f.requests[0]);

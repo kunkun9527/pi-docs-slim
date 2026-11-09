@@ -16,7 +16,7 @@ pi install npm:@ssk_dev/pi-docs-slim
 
 If you have the original `pi-slim` installed, remove it first. Both register a `/pi` command.
 
-Requires Pi 0.87.1 or newer (tested on 0.87.1, 1.0.0, 1.3.0 and 1.4.0).
+Requires Pi 0.87.1 or newer (tested on 0.87.1, 1.2.0, 1.3.0, 1.4.0 and 1.5.0, and end to end on Pi-Bolt).
 
 ## Usage
 
@@ -34,6 +34,7 @@ What this fork changes:
 
 - **Removes the docs from the new structured prompt.** It blocks Pi from filling the docs section back in, and strips the docs from every request before the provider sees them. The saved system message keeps a short `<!-- pi-slim:omit -->` marker in that section: Pi derives each request's sections from the transcript, so a cleared section makes it append an empty system message to every request.
 - **Cleans old history too.** Docs left over from an earlier `/pi` run are stripped from later normal requests.
+- **Follows Pi's wording.** Pi rewrites the guidance between versions (Pi 1.5 reworded it, and builds such as Pi-Bolt add their own lines), so the extension doesn't hardcode it: on each run it reads the exact text the running Pi renders, and only removes `<docs>` blocks that match it exactly. The pre-1.5 wording stays recognized for old sessions.
 - **Works with `/context` in any load order.** [pi-context-view](https://www.npmjs.com/package/pi-context-view) never shows Pi's docs and never mislabels the prompt as forced, whether it loads before or after this extension (see Limits for the marker).
 - **Makes `/pi` reliable.** The "keep docs" permission is tied to the exact request `/pi` sends, so it can't leak into your next message if that request gets intercepted.
 - **`/pi` no longer breaks the prompt cache.** Most providers get the system prompt at the very start of the request, so putting the guidance back into it made the provider re-read the whole session: one `/pi` run cost two full cache misses (the run itself, plus the normal request that switched the section back off). Now the system prompt is byte-identical for every request and the cached prefix before `/pi` is kept. Only the `/pi` run itself is new: about 500 tokens of guidance, plus re-reading that run once on the next normal request, which no longer carries the guidance.
@@ -55,6 +56,8 @@ PI_CODING_AGENT_DIR=/path/to/pi-coding-agent PI_CONTEXT_VIEW_DIR=/path/to/pi-con
 ```
 
 Set `PI_SLIM_ENTRY` to run the suite against another implementation.
+
+To check a real Pi binary end to end (for example a build whose wording differs from npm Pi), run `node tests/host-e2e.mjs <path to pi>`. It starts that binary in RPC mode with a throwaway agent directory and a fake model server, sends a normal message, a `/pi` message and another normal message, and checks what the model server receives, also with an earlier extension that forces a prompt. It doesn't touch your settings or call any model service.
 
 ## Limits
 

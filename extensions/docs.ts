@@ -1,6 +1,7 @@
-import type { ContextWithSystemEvent } from "@earendil-works/pi-coding-agent";
+import type { BeforeAgentStartEvent, ContextWithSystemEvent } from "@earendil-works/pi-coding-agent";
 
 type Message = ContextWithSystemEvent["messages"][number];
+type PromptOptions = BeforeAgentStartEvent["systemPromptOptions"];
 type SystemMessage = Extract<Message, { role: "system" }>;
 type UserMessage = Extract<Message, { role: "user" }>;
 
@@ -9,12 +10,58 @@ type UserMessage = Extract<Message, { role: "user" }>;
 // desired sections, so a cleared docs section would re-add a patch every request.
 // It is removed from every request before the provider sees it.
 export const OMIT_DOCS = "<!-- pi-slim:omit -->";
-const HEADER = "Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):";
+const PROBE = "<!-- pi-slim:probe -->";
+const normalize = (body: string) => body.replace(/\r\n/g, "\n").trim();
 
-/** Recognize Pi's complete guidance, not arbitrary project-owned <docs> blocks. */
+// Exact guidance bodies this host rendered itself. Pi's wording changes between versions and builds
+// (Pi 1.5 rewrote it, Pi-Bolt adds its own line), so it is learned at runtime instead of hardcoded.
+const nativeDocs = new Set<string>();
+
+/**
+ * Learn the host's own guidance by rendering the prompt twice with no forced/custom prompt and no
+ * custom sections: once with docs absent (Pi fills in its own) and once with a probe marker. The two
+ * renderings differ only in the guidance. Any doubt learns nothing; the options are always restored.
+ */
+export function learnNativeDocs(options: PromptOptions, render: () => unknown): void {
+	const keys = ["forceSystemPrompt", "customPrompt", "sections"] as const;
+	const saved = keys.map(key => Object.getOwnPropertyDescriptor(options, key));
+	const set = (key: string, value: unknown) => Object.defineProperty(options, key, { value, writable: true, enumerable: true, configurable: true });
+	try {
+		set("forceSystemPrompt", undefined);
+		set("customPrompt", undefined);
+		set("sections", {});
+		const plain = render();
+		set("sections", { docs: PROBE });
+		const marked = render();
+		if (typeof plain !== "string" || typeof marked !== "string") return;
+		const probe = `<docs>\n${PROBE}\n</docs>`;
+		const at = marked.indexOf(probe);
+		if (at < 0 || marked.indexOf(probe, at + 1) >= 0) return;
+		const prefix = marked.slice(0, at);
+		const suffix = marked.slice(at + probe.length);
+		if (plain.length < prefix.length + suffix.length || !plain.startsWith(prefix) || !plain.endsWith(suffix)) return;
+		const block = plain.slice(prefix.length, plain.length - suffix.length);
+		if (!block.startsWith("<docs>\n") || !block.endsWith("\n</docs>")) return;
+		const body = normalize(block.slice("<docs>\n".length, -"\n</docs>".length));
+		if (body && !body.includes("\n</docs>")) nativeDocs.add(body);
+	} catch {
+		// Hosts without a live prompt getter, locked options, or throwing renders keep the frozen legacy rule.
+	} finally {
+		keys.forEach((key, i) => saved[i] ? Object.defineProperty(options, key, saved[i]) : Reflect.deleteProperty(options, key));
+	}
+}
+
+/** Pi's own guidance as this host renders it (or the frozen pre-1.5 wording), not project-owned <docs>. */
 export function isBuiltinDocs(body: string): boolean {
+	return nativeDocs.has(normalize(body)) || isLegacyDocs(body);
+}
+
+// Frozen: the 8-line guidance of Pi 0.87-1.4, kept for old session history and hosts where learning
+// fails. Do not extend it for new wording; learnNativeDocs covers current hosts.
+const LEGACY_HEADER = "Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):";
+function isLegacyDocs(body: string): boolean {
 	const lines = body.trim().split(/\r?\n/);
-	return lines.length === 8 && lines[0] === HEADER
+	return lines.length === 8 && lines[0] === LEGACY_HEADER
 		&& lines[1].startsWith("- Main documentation: ")
 		&& lines[2].startsWith("- Additional docs: ")
 		&& lines[3].startsWith("- Examples: ") && lines[3].endsWith(" (extensions, custom tools, SDK)")
@@ -53,9 +100,10 @@ export function stripPiDocs(text: string, removed?: string[]): string {
 			if (!/^<docs>\r?\n$/.test(match[0]) || (body.trim() !== OMIT_DOCS && !isBuiltinDocs(body))) continue;
 			if (body.trim() !== OMIT_DOCS) removed?.push(body.trim());
 		} else {
-			// Legacy/extension-produced unwrapped guidance: require all eight native lines.
+			// Legacy/extension-produced unwrapped guidance: only the frozen eight-line wording, never a
+			// looser line count, which would swallow the project instructions that follow.
 			const block = text.slice(match.index).match(/^(?:[^\r\n]*\r?\n){7}[^\r\n]*/)?.[0];
-			if (!block || !isBuiltinDocs(block)) continue;
+			if (!block || !isLegacyDocs(block)) continue;
 			removed?.push(block.trim());
 			end = match.index + block.length;
 			pattern.lastIndex = end;
