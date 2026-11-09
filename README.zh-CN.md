@@ -49,7 +49,7 @@ pi install npm:@ssk_dev/pi-docs-slim
 npm test
 ```
 
-测试需要装好 Pi 0.87.1 以上版本和 pi-context-view 0.6.0 或 0.8.0。默认找全局的 Pi 和 `~/.pi/agent/npm/node_modules/pi-context-view`；装在别处的话，指向包的根目录：
+测试需要装好 Pi 0.87.1 以上版本和 pi-context-view 0.6.0 或 0.8.0（0.8.0 本身要求 Pi 1.3.0 以上，测更早的 Pi 请用 0.6.0）。默认找全局的 Pi 和 `~/.pi/agent/npm/node_modules/pi-context-view`；装在别处的话，指向包的根目录：
 
 ```bash
 PI_CODING_AGENT_DIR=/path/to/pi-coding-agent PI_CONTEXT_VIEW_DIR=/path/to/pi-context-view npm test
@@ -66,7 +66,7 @@ PI_CODING_AGENT_DIR=/path/to/pi-coding-agent PI_CONTEXT_VIEW_DIR=/path/to/pi-con
 - `📖 pi-docs` 标记是会话里的一条 `CustomEntry`：Pi 不会把 custom entry 放进模型上下文，所以它不占 prompt token，`/context` 也不会统计它，重新加载后仍然在。它在这次运行的消息保存之后才写入，所以从那条消息 fork 或用 `/tree` 回退时不会带上它，压缩时的切分位置也和没有它时一样。token 数只是粗略估算；排在本扩展之后、还会改请求的扩展仍可能改变实际发出的内容。
 - 保存下来的会话会在 `docs` section 里留一个约 20 字符的省略标记，这样 Pi 每次请求的 section diff 才能稳定。标记在每条请求发出前都会去掉，不会发给模型，但 `/context` 可能把它算进去（约 5 token）：pi-context-view 0.6.0 读的是保存的 transcript，0.8.0 排在本扩展之前加载时，会在清理之前截取请求。这是 pi-context-view 对排在它后面的处理器的既定行为（见它的 [capture 文档](https://github.com/dimk90/pi-context-view/blob/develop/doc/architecture/capture.md)），不需要调整加载顺序。
 - 模型自己用工具去读 Pi 文档，读到的内容会保留。
-- 清理逻辑依赖 Pi 0.87.1 的事件顺序，升级 Pi 后要重跑测试。如果别的扩展在最后一步上下文处理之后又塞回文档说明，这里清不掉。
+- 清理逻辑依赖 Pi 0.87.1 的事件顺序，也依赖读取 Pi 为当前运行生成的提示词。如果以后的 Pi 不再提供这一点，就只能认出 1.5 之前的旧措辞，新的文档说明会漏过去，所以升级 Pi 后要重跑测试（以及 `tests/host-e2e.mjs`）。如果别的扩展在最后一步上下文处理之后又塞回文档说明，这里清不掉。
 
 ## 许可证
 

@@ -49,7 +49,7 @@ No new runtime dependencies.
 npm test
 ```
 
-The tests need Pi 0.87.1+ and pi-context-view 0.6.0 or 0.8.0 installed. They look for the global Pi and `~/.pi/agent/npm/node_modules/pi-context-view` by default. For other locations, point to the package roots:
+The tests need Pi 0.87.1+ and pi-context-view 0.6.0 or 0.8.0 installed (0.8.0 itself needs Pi 1.3.0+, so test older Pi with 0.6.0). They look for the global Pi and `~/.pi/agent/npm/node_modules/pi-context-view` by default. For other locations, point to the package roots:
 
 ```bash
 PI_CODING_AGENT_DIR=/path/to/pi-coding-agent PI_CONTEXT_VIEW_DIR=/path/to/pi-context-view npm test
@@ -66,7 +66,7 @@ To check a real Pi binary end to end (for example a build whose wording differs 
 - The `📖 pi-docs` marker is a session `CustomEntry`: Pi keeps custom entries out of the model's context, so it adds no prompt tokens, `/context` does not count it, and it stays in the transcript across reloads. It is written after the run's message is saved, so forking or `/tree` from that message leaves it behind, and compaction picks the same cut as without it. Its token count is a rough estimate, and an extension that edits the request after this one can still change what is sent.
 - Saved sessions keep the ~20-character omission marker in their `docs` section so Pi's per-request section diff converges. The marker is removed from every request and never reaches the model. `/context` may still count it (about 5 tokens): pi-context-view 0.6.0 reads the saved transcript, and 0.8.0 captures each request before this extension cleans it when it loads first. That is pi-context-view's documented behavior for handlers that run after it (see its [capture notes](https://github.com/dimk90/pi-context-view/blob/develop/doc/architecture/capture.md)); you don't need to change your load order.
 - If the model reads Pi's docs with a tool, that output is kept.
-- The cleanup relies on Pi 0.87.1's event order. Rerun the tests after upgrading Pi. If another extension re-injects the docs after the final context step, they won't be removed.
+- The cleanup relies on Pi 0.87.1's event order and on reading the prompt Pi renders for the current run. If a future Pi stops exposing that, only the pre-1.5 wording is recognized and newer guidance would get through, so rerun the tests (and `tests/host-e2e.mjs`) after upgrading Pi. If another extension re-injects the docs after the final context step, they won't be removed.
 
 ## License
 
