@@ -520,11 +520,13 @@ test('/pi marks its run between its message and the reply, and the marker never 
   await f.command('ordinary');
   assert.equal(runMarkers(entries()).length, 0, 'ordinary requests add no marker');
   await f.command('/pi explain extensions');
-  piDocs(f.requests[1]);
+  const { block } = piDocs(f.requests[1]);
   const [marker] = runMarkers(entries());
   assert.equal(runMarkers(entries()).length, 1, 'the /pi run adds exactly one marker');
   assert.ok(marker.data.tokens > 0, 'the marker reports how much guidance the request added');
-  assert.ok(!JSON.stringify(f.requests[1]).includes('pi-docs'), 'the marker reached the provider');
+  // Pi's guidance lists its own install paths, which may contain "pi-docs" (e.g. a checkout named pi-docs-slim).
+  const outsideGuidance = JSON.stringify(f.requests[1]).replace(JSON.stringify(block).slice(1, -1), '');
+  assert.ok(!outsideGuidance.includes('pi-docs'), 'the marker reached the provider');
   assert.equal(marker.parentId, askedEntry(entries(), 'explain extensions').id, 'the marker must follow the message it explains');
   const reply = entries().find(e => e.parentId === marker.id);
   assert.equal(reply?.message?.role, 'assistant', 'the reply must follow the marker');
