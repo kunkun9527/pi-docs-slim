@@ -1,12 +1,29 @@
-# @ssk_dev/pi-docs-slim
+<div align="center">
 
-> [See my full setup for Pi](https://github.com/kunkun9527/my-lean-pi-setup)
+# pi-docs-slim
 
-[简体中文](README.zh-CN.md)
+**Pi's own docs guidance, only when you ask for it.**
+
+[简体中文](README.zh-CN.md) · Full setup: [My Lean Pi Setup](https://github.com/kunkun9527/my-lean-pi-setup)
+
+</div>
 
 A [Pi](https://pi.dev) extension that keeps Pi's built-in documentation guidance out of the system prompt. When you actually have a question about Pi itself, ask it with `/pi` and the guidance comes back for that one run.
 
-This is a fork of [robzolkos/pi-slim](https://github.com/robzolkos/pi-slim) by Rob Zolkos. The idea and the `/pi` command come from his extension. The fork exists mainly to make it work on newer Pi versions.
+It's a fork of [robzolkos/pi-slim](https://github.com/robzolkos/pi-slim) by Rob Zolkos. The idea and the `/pi` command come from his extension; the fork mainly makes it work on newer Pi versions.
+
+## How much it saves
+
+The guidance is a `<docs>` block of about **1,400 characters (~350 tokens)** that Pi puts into every request's system prompt. This extension removes it from every normal request.
+
+| Host | Docs block | Bare system prompt, before → after |
+| --- | ---: | ---: |
+| Pi-Bolt (1.5 wording plus its own line) | 1,406 chars, ~352 tokens | 2,561 → 1,153 chars (−55%) |
+| npm Pi `1.5.0` | 1,368 chars, ~342 tokens | — |
+
+<sub>Pi-Bolt: the request it sends to an offline model server, with and without this extension; no tools, extensions or context files loaded, so the percentage only describes Pi's bare prompt. npm Pi: the `docs` section from `buildSystemPromptSections`. The block holds three absolute install paths, so its size shifts a little with where Pi is installed. Tokens are estimated as `ceil(characters / 4)`, as in the [setup benchmark](https://github.com/kunkun9527/my-lean-pi-setup).</sub>
+
+A `/pi` run adds the guidance to that one message instead: about 1,500 characters (~380 tokens) including a short wrapper.
 
 ## Install
 
@@ -22,7 +39,7 @@ Requires Pi 0.87.1 or newer (tested on 0.87.1, 1.2.0, 1.3.0, 1.4.0 and 1.5.0, an
 
 - Normal requests: Pi's documentation guidance is removed from what the model sees.
 - `/pi <question about Pi>`: this run reads the guidance at the head of its own message instead of in the system prompt, and keeps it for its tool-call turns. Once the guidance has gone into a request, the transcript shows a one-line `📖 pi-docs` marker between your message and the reply, so you can see which run carried it. The next normal request goes back to removing it.
-- Your own `<docs>` blocks, project instructions, and code examples are left alone. Saved user messages, assistant replies, and tool output are never changed (`/pi` only adds the guidance to the request it sends).
+- Your own `<docs>` blocks, project instructions and code examples are left alone. Saved user messages, assistant replies and tool output are never changed (`/pi` only adds the guidance to the request it sends).
 
 After installing or updating, run `/reload`, send a normal message, and check `/context`.
 
@@ -37,7 +54,7 @@ What this fork changes:
 - **Follows Pi's wording.** Pi rewrites the guidance between versions (Pi 1.5 reworded it, and builds such as Pi-Bolt add their own lines), so the extension doesn't hardcode it: on each run it reads the exact text the running Pi renders, and only removes `<docs>` blocks that match it exactly. The pre-1.5 wording stays recognized for old sessions.
 - **Works with `/context` in any load order.** [pi-context-view](https://www.npmjs.com/package/pi-context-view) never shows Pi's docs and never mislabels the prompt as forced, whether it loads before or after this extension (see Limits for the marker).
 - **Makes `/pi` reliable.** The "keep docs" permission is tied to the exact request `/pi` sends, so it can't leak into your next message if that request gets intercepted.
-- **`/pi` no longer breaks the prompt cache.** Most providers get the system prompt at the very start of the request, so putting the guidance back into it made the provider re-read the whole session: one `/pi` run cost two full cache misses (the run itself, plus the normal request that switched the section back off). Now the system prompt is byte-identical for every request and the cached prefix before `/pi` is kept. Only the `/pi` run itself is new: about 500 tokens of guidance, plus re-reading that run once on the next normal request, which no longer carries the guidance.
+- **`/pi` no longer breaks the prompt cache.** Most providers get the system prompt at the very start of the request, so putting the guidance back into it made the provider re-read the whole session: one `/pi` run cost two full cache misses (the run itself, plus the normal request that switched the section back off). Now the system prompt is byte-identical for every request and the cached prefix before `/pi` is kept. Only the `/pi` run itself is new: the guidance in that message, plus re-reading that run once on the next normal request, which no longer carries the guidance.
 - **Doesn't freeze the prompt.** Tools and rules added later by other extensions still show up.
 - **Adds offline integration tests.** They run real Pi sessions with an offline model provider, so no model service is called.
 
@@ -62,7 +79,7 @@ To check a real Pi binary end to end (for example a build whose wording differs 
 ## Limits
 
 - Old session files aren't rewritten. `/context`'s Usage view is clean after the next normal request. The Initial view is a snapshot from the first request; reload to refresh it. If that first request was `/pi`, it will include the docs, which is expected.
-- During a `/pi` run, `/context` shows the guidance as content of that message (about 500 tokens). It is added to the request only: the saved session keeps your question as you typed it, and later requests don't carry the guidance.
+- During a `/pi` run, `/context` shows the guidance as content of that message. It is added to the request only: the saved session keeps your question as you typed it, and later requests don't carry the guidance.
 - The `📖 pi-docs` marker is a session `CustomEntry`: Pi keeps custom entries out of the model's context, so it adds no prompt tokens, `/context` does not count it, and it stays in the transcript across reloads. It is written after the run's message is saved, so forking or `/tree` from that message leaves it behind, and compaction picks the same cut as without it. Its token count is a rough estimate, and an extension that edits the request after this one can still change what is sent.
 - Saved sessions keep the ~20-character omission marker in their `docs` section so Pi's per-request section diff converges. The marker is removed from every request and never reaches the model. `/context` may still count it (about 5 tokens): pi-context-view 0.6.0 reads the saved transcript, and 0.8.0 captures each request before this extension cleans it when it loads first. That is pi-context-view's documented behavior for handlers that run after it (see its [capture notes](https://github.com/dimk90/pi-context-view/blob/develop/doc/architecture/capture.md)); you don't need to change your load order.
 - If the model reads Pi's docs with a tool, that output is kept.

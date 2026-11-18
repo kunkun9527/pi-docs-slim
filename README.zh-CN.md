@@ -1,12 +1,29 @@
-# @ssk_dev/pi-docs-slim
+<div align="center">
 
-> [看看我的完整 Pi 配置](https://github.com/kunkun9527/my-lean-pi-setup)
+# pi-docs-slim
 
-[English](README.md)
+**Pi 自带的文档说明，要用时才加载。**
+
+[English](README.md) · 完整配置：[My Lean Pi Setup](https://github.com/kunkun9527/my-lean-pi-setup)
+
+</div>
 
 一个 [Pi](https://pi.dev) 扩展，把 Pi 默认附带的文档说明从系统提示词里去掉。真要问 Pi 本身的问题时，用 `/pi` 提问，这一次会把文档说明带回来。
 
 本项目 fork 自 Rob Zolkos 的 [robzolkos/pi-slim](https://github.com/robzolkos/pi-slim)。思路和 `/pi` 命令都来自原版，fork 主要是为了让它能在新版 Pi 上正常工作。
+
+## 能省多少
+
+这段文档说明是一个 `<docs>` 块，约 **1,400 字符（约 350 tokens）**，Pi 会把它放进每条请求的系统提示词。本扩展把它从每条普通请求里去掉。
+
+| 宿主 | docs 块 | 裸系统提示词，之前 → 之后 |
+| --- | ---: | ---: |
+| Pi-Bolt（1.5 措辞加一行自己的说明） | 1,406 字符，约 352 tokens | 2,561 → 1,153 字符（−55%） |
+| npm Pi `1.5.0` | 1,368 字符，约 342 tokens | — |
+
+<sub>Pi-Bolt：截取它发给离线模型服务的请求，分别在装和不装本扩展时测量；没有加载工具、扩展和上下文文件，所以百分比只描述 Pi 的裸提示词。npm Pi：`buildSystemPromptSections` 给出的 `docs` section。这段里有三个绝对安装路径，大小会随 Pi 的安装位置略有变化。Token 按 `ceil(字符数 / 4)` 估算，和[完整配置的基准](https://github.com/kunkun9527/my-lean-pi-setup)一致。</sub>
+
+`/pi` 这一轮改为把文档说明加在那条消息里：连同一小段包装文字，约 1,500 字符（约 380 tokens）。
 
 ## 安装
 
@@ -37,7 +54,7 @@ pi install npm:@ssk_dev/pi-docs-slim
 - **跟着 Pi 的措辞走。** Pi 不同版本的文档说明写法不一样（Pi 1.5 改了措辞，Pi-Bolt 这类构建还会加自己的行），所以扩展不写死这段文字：每次运行时读出当前 Pi 实际生成的原文，只删和它完全一致的 `<docs>` 块。1.5 之前的旧措辞仍然认得，用来清理旧会话。
 - **`/context` 与加载顺序无关。** 不管 [pi-context-view](https://www.npmjs.com/package/pi-context-view) 排在本扩展之前还是之后，它都不会显示 Pi 文档说明，也不会把提示词误标成 forced（省略标记见“限制”）。
 - **`/pi` 更可靠。** “保留文档”的许可只绑定到 `/pi` 发出的那一次请求；就算这次请求被拦截，也不会漏到你的下一条消息。
-- **`/pi` 不再打断 prompt cache。** 多数 provider 把系统提示词放在请求最开头，以前把文档说明塞回系统提示词，就得让 provider 把整个会话重新算一遍缓存：一次 `/pi` 连着丢两次（`/pi` 那次，加上后面第一条把文档关掉的普通请求）。现在每条请求的系统提示词完全一致，`/pi` 之前的缓存前缀都保得住。新增的只有 `/pi` 这一轮本身：约 500 token 的文档说明，以及下一条普通请求不再带说明，要把这一轮重新算一次。
+- **`/pi` 不再打断 prompt cache。** 多数 provider 把系统提示词放在请求最开头，以前把文档说明塞回系统提示词，就得让 provider 把整个会话重新算一遍缓存：一次 `/pi` 连着丢两次（`/pi` 那次，加上后面第一条把文档关掉的普通请求）。现在每条请求的系统提示词完全一致，`/pi` 之前的缓存前缀都保得住。新增的只有 `/pi` 这一轮本身：那条消息里的文档说明，以及下一条普通请求不再带说明，要把这一轮重新算一次。
 - **提示词不会被冻结。** 其他扩展后来加的工具和规则照样生效。
 - **加了离线集成测试。** 用真实的 Pi 会话加离线模型 provider 跑，不调用模型服务。
 
@@ -62,7 +79,7 @@ PI_CODING_AGENT_DIR=/path/to/pi-coding-agent PI_CONTEXT_VIEW_DIR=/path/to/pi-con
 ## 限制
 
 - 不改写旧的会话文件。`/context` 的 Usage 视图在下一条普通请求后就是干净的。Initial 视图是第一次请求时的快照，要重新加载才会更新；如果第一次请求用的是 `/pi`，里面有文档说明是正常的。
-- `/pi` 运行期间，`/context` 会把文档说明显示成那条消息的内容（约 500 token）。它只加在请求里：保存下来的会话仍是你原样输入的问题，后面的请求也不会带上它。
+- `/pi` 运行期间，`/context` 会把文档说明显示成那条消息的内容。它只加在请求里：保存下来的会话仍是你原样输入的问题，后面的请求也不会带上它。
 - `📖 pi-docs` 标记是会话里的一条 `CustomEntry`：Pi 不会把 custom entry 放进模型上下文，所以它不占 prompt token，`/context` 也不会统计它，重新加载后仍然在。它在这次运行的消息保存之后才写入，所以从那条消息 fork 或用 `/tree` 回退时不会带上它，压缩时的切分位置也和没有它时一样。token 数只是粗略估算；排在本扩展之后、还会改请求的扩展仍可能改变实际发出的内容。
 - 保存下来的会话会在 `docs` section 里留一个约 20 字符的省略标记，这样 Pi 每次请求的 section diff 才能稳定。标记在每条请求发出前都会去掉，不会发给模型，但 `/context` 可能把它算进去（约 5 token）：pi-context-view 0.6.0 读的是保存的 transcript，0.8.0 排在本扩展之前加载时，会在清理之前截取请求。这是 pi-context-view 对排在它后面的处理器的既定行为（见它的 [capture 文档](https://github.com/dimk90/pi-context-view/blob/develop/doc/architecture/capture.md)），不需要调整加载顺序。
 - 模型自己用工具去读 Pi 文档，读到的内容会保留。
