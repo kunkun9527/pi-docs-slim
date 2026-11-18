@@ -66,7 +66,7 @@ No new runtime dependencies.
 npm test
 ```
 
-The tests need Pi 0.87.1+ and pi-context-view 0.6.0 or 0.8.0 installed (0.8.0 itself needs Pi 1.3.0+, so test older Pi with 0.6.0). They look for the global Pi and `~/.pi/agent/npm/node_modules/pi-context-view` by default. For other locations, point to the package roots:
+The tests need Pi 0.87.1+ and pi-context-view 0.6.0 or 0.8.x installed (0.8 itself needs Pi 1.3.0+, so test older Pi with 0.6.0). They look for the global Pi and `~/.pi/agent/npm/node_modules/pi-context-view` by default. For other locations, point to the package roots:
 
 ```bash
 PI_CODING_AGENT_DIR=/path/to/pi-coding-agent PI_CONTEXT_VIEW_DIR=/path/to/pi-context-view npm test

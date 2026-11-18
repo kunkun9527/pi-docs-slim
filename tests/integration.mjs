@@ -32,7 +32,9 @@ const ai = await import(pathToFileURL(piAi));
 const slim = await jiti.import(process.env.PI_SLIM_ENTRY || resolve(here, '../extensions/remove-pi-docs.ts'), { default: true });
 const viewDir = process.env.PI_CONTEXT_VIEW_DIR || join(homedir(), '.pi/agent/npm/node_modules/pi-context-view');
 const viewVersion = createRequire(join(viewDir, 'package.json'))('./package.json').version;
-assert.ok(['0.6.0', '0.8.0'].includes(viewVersion), `This suite targets pi-context-view 0.6.0 or 0.8.0, found ${viewVersion}`);
+// 0.8.x patch releases keep the 0.8.0 capture API this suite drives.
+const isView08 = /^0\.8\.\d+$/.test(viewVersion);
+assert.ok(viewVersion === '0.6.0' || isView08, `This suite targets pi-context-view 0.6.0 or 0.8.x, found ${viewVersion}`);
 const view = viewVersion === '0.6.0' ? await contextView06() : await contextView08();
 const { replaySystemMessages, systemMessageText } = view;
 
@@ -124,7 +126,9 @@ async function fixture({ before = [], after = [], systemPrompt, replies, capture
     model: runtime.getModel('pi-slim-test', 'offline'), thinkingLevel: 'off', settingsManager,
     sessionManager: core.SessionManager.inMemory(dir), resourceLoader: loader, tools: ['read', 'bash', 'switch_tools'],
   });
-  await session.bindExtensions({ mode: 'print', onError: (e) => errors.push(e) });
+  // A stand-in UI: context-view 0.8.4+ only captures requests where Pi has a UI. Every UI call is a no-op.
+  const uiContext = new Proxy({}, { get: (_, key) => (key === 'then' ? undefined : () => undefined) });
+  await session.bindExtensions({ mode: 'print', uiContext, onError: (e) => errors.push(e) });
   const command = async (text, expectRun = true) => {
     let stop = () => {};
     let timer;
@@ -144,10 +148,10 @@ async function fixture({ before = [], after = [], systemPrompt, replies, capture
   // context-view reads the transcript, which keeps the omission marker. When it captures before slim
   // cleans the request (0.8.0 loaded first), or replays the transcript (0.6.0), it may show the marker;
   // it must never show Pi's docs or label the prompt as forced.
-  const exactView = viewVersion === '0.8.0' && !captureFirst;
+  const exactView = isView08 && !captureFirst;
   // 0.6.0's Initial view is a one-time snapshot of the first request; after a first /pi run it shows docs by design.
   const viewClean = ({ forced = false, firstRunWasPi = false } = {}) => {
-    if (viewVersion === '0.8.0') noCountedDocs(viewer.captured(session), { marker: !exactView });
+    if (isView08) noCountedDocs(viewer.captured(session), { marker: !exactView });
     else if (!firstRunWasPi) noDocsGuidance(viewer.captured(session));
     (exactView ? noDocs : noDocsGuidance)(viewer.usage(session));
     if (!forced) assert.equal(viewer.forcedLabel(session), undefined, 'context-view labeled the prompt as forced');
