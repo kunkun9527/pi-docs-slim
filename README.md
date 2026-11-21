@@ -33,7 +33,7 @@ pi install npm:@ssk_dev/pi-docs-slim
 
 If you have the original `pi-slim` installed, remove it first. Both register a `/pi` command.
 
-Requires Pi 0.87.1 or newer (tested on 0.87.1, 1.2.0, 1.3.0, 1.4.0 and 1.5.0, and end to end on Pi-Bolt).
+Requires Pi 0.87.1 or newer (tested on 0.87.1, 1.2.0, 1.3.0, 1.4.0, 1.5.0 and 1.6.0, and end to end on Pi-Bolt).
 
 ## Usage
 
